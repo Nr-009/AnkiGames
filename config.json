@@ -1,5 +1,7 @@
 {
     "pairs":16,
     "flip_delay_ms":800,
-    "currentGame":"memory"
+    "currentGame":"memory",
+    "cols":2,
+    "rows":4 
 }

@@ -1,4 +1,3 @@
-# __init__.py
 
 from aqt import gui_hooks, mw
 from aqt.utils import qconnect
@@ -15,11 +14,11 @@ def launch_game(deck_id):
 
     if result == QDialog.DialogCode.Accepted:
         if selector.chosen_mode == "memory_flip":
-            game = MemoryFlipGame(deckName, selector.numberOfCardsPerMemoryGrid)
+            game = MemoryFlipGame(deckName)
             game.exec()
 
 def add_game_option(menu, deck_id):
-    action = menu.addAction("Play as Game")
+    action = menu.addAction("🎮 Play as Game")
     qconnect(action.triggered, lambda: launch_game(deck_id))
 
 gui_hooks.deck_browser_will_show_options_menu.append(add_game_option)

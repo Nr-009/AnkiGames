@@ -1,5 +1,7 @@
 # games/memory_flip.py
 
+import json
+import os
 import random
 from dataclasses import dataclass
 from aqt.qt import (QDialog, QGridLayout, QVBoxLayout,
@@ -8,6 +10,13 @@ from aqt.utils import qconnect
 from aqt import mw
 from .card_loader import load_pairs
 
+def load_config():
+    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    rows = config.get("rows", 4)
+    cols = config.get("cols", 4)
+    return rows, cols
 
 @dataclass
 class Tile:
@@ -80,7 +89,6 @@ class State:
     def __init__(self, cards, numberOfCardsPerMemoryGrid, onBatchDone, onGameDone, onMove):
         self.cards                      = cards
         self.numberOfCardsPerMemoryGrid = numberOfCardsPerMemoryGrid
-        self.numberOfCardsUp            = numberOfCardsPerMemoryGrid // 2
         self.onBatchDone                = onBatchDone
         self.onGameDone                 = onGameDone
         self.onMove                     = onMove
@@ -145,10 +153,11 @@ class State:
         self.inputLocked = False
 
 class MemoryFlipGame(QDialog):
-    def __init__(self, deckName: str, numberOfCardsPerMemoryGrid: int):
+    def __init__(self, deckName: str):
         super().__init__(mw)
-        self.deckName                   = deckName
-        self.numberOfCardsPerMemoryGrid = numberOfCardsPerMemoryGrid
+        self.deckName          = deckName
+        self.rows, self.cols   = load_config()
+        self.numberOfCardsPerMemoryGrid = self.rows * self.cols
         self.setWindowTitle("Memory Flip")
         self.showMaximized()
 
@@ -159,7 +168,7 @@ class MemoryFlipGame(QDialog):
 
         self.state = State(
             cards                      = tileButtons,
-            numberOfCardsPerMemoryGrid = numberOfCardsPerMemoryGrid,
+            numberOfCardsPerMemoryGrid = self.numberOfCardsPerMemoryGrid,
             onBatchDone                = self.buildGrid,
             onGameDone                 = self.finish,
             onMove                     = self.countMove
@@ -228,11 +237,12 @@ class MemoryFlipGame(QDialog):
             btn.putCard = self.state.putCard
             btn.set_facedown()
 
-        cols = 4
-        for idx, btn in enumerate(batch):
-            row = idx // cols
-            col = idx % cols
-            self.gridLayout.addWidget(btn, row, col)
+        i = 0
+        for x in range(self.rows):
+            for y in range(self.cols):
+                if i < len(batch):
+                    self.gridLayout.addWidget(batch[i], x, y)
+                    i += 1
 
     def countMove(self):
         self.moves += 1
