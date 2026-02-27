@@ -1,7 +1,8 @@
 {
-    "pairs":16,
-    "flip_delay_ms":800,
-    "currentGame":"memory",
-    "cols":4,
-    "rows":4 
+    "rows": 5,
+    "cols": 4,
+    "numberOfPairs": 6,
+    "flip_delay_ms": 600,
+    "line_wrong_ms": 500,
+    "useReviewQueue": false
 }

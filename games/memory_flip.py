@@ -82,7 +82,9 @@ class State(BaseState):
         else:
             self.card1.set_wrong()
             self.card2.set_wrong()
-            self._after_wrong(self.card1, self.card2, 800, self._flip_back)
+            cfg   = load_config(("flip_delay_ms", 800))
+            delay = cfg["flip_delay_ms"]
+            self._after_wrong(self.card1, self.card2, delay, self._flip_back)
 
     def _flip_back(self, c1, c2):
         c1.set_facedown()

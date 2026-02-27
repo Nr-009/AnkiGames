@@ -133,7 +133,9 @@ class LineState(BaseState):
             self._after_correct()
         else:
             self.on_wrong(self.card1, self.card2)
-            self._after_wrong(self.card1, self.card2, 800, self._reset_after_wrong)
+            cfg   = load_config(("line_wrong_ms", 800))
+            delay = cfg["line_wrong_ms"]
+            self._after_wrong(self.card1, self.card2, delay, self._reset_after_wrong)
 
     def _reset_after_wrong(self, c1, c2):
         c1.deselect()
