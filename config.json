@@ -1,9 +1,9 @@
 {
     "rows": 4,
-    "cols": 2,
+    "cols": 4,
     "numberOfPairs": 6,
     "maxCards": 10,
-    "flip_delay_ms": 600,
-    "line_wrong_ms": 500,
+    "flip_delay_ms": 1300,
+    "line_wrong_ms": 1400,
     "useReviewQueue": false
 }
