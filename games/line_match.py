@@ -1,5 +1,3 @@
-import json
-import os
 import random
 from aqt.qt import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTimer,
@@ -7,17 +5,8 @@ from aqt.qt import (
 )
 from aqt.utils import qconnect
 from aqt import mw
-from .card_loader import load_pairs
-
-
-def load_config():
-    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
-    with open(config_path, "r") as f:
-        config = json.load(f)
-    return config.get("numberOfPairs", 4)
-
-
-
+from .utils import load_config, load_pairs, make_win_widget
+from .base_state import BaseState
 
 class LineLabel(QLabel):
     def __init__(self, text: str, pair_id: int, on_click):
@@ -25,7 +14,7 @@ class LineLabel(QLabel):
         self.pair_id    = pair_id
         self.is_matched = False
         self.on_click   = on_click
-        self.side       = None  
+        self.side       = None
 
         self.setText(text)
         self.setWordWrap(True)
@@ -60,16 +49,12 @@ class LineLabel(QLabel):
         }
         self.setStyleSheet(styles[state])
 
-
-
-
 class LineCanvas(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
         self.setStyleSheet("background: transparent;")
-
         self.green_lines = []
         self.red_line    = None
 
@@ -95,48 +80,27 @@ class LineCanvas(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        pen = QPen(QColor("#4aff4a"), 3)
-        painter.setPen(pen)
+        painter.setPen(QPen(QColor("#4aff4a"), 3))
         for p1, p2 in self.green_lines:
             painter.drawLine(p1, p2)
 
         if self.red_line:
-            pen = QPen(QColor("#ff4a4a"), 3)
-            painter.setPen(pen)
+            painter.setPen(QPen(QColor("#ff4a4a"), 3))
             painter.drawLine(self.red_line[0], self.red_line[1])
 
         painter.end()
 
-
-
-class LineState:
+class LineState(BaseState):
     def __init__(self, cards, cards_per_batch, on_batch_done, on_game_done, on_move, on_correct, on_wrong):
-        self.cards           = cards
-        self.cards_per_batch = cards_per_batch
-        self.on_batch_done   = on_batch_done
-        self.on_game_done    = on_game_done
-        self.on_move         = on_move
-        self.on_correct      = on_correct
-        self.on_wrong        = on_wrong
-
-        self.card1        = None
-        self.card2        = None
-        self.input_locked = False
-        self.batch_index  = 0
-        self.pairs_up     = 0
-
-    def load_batch(self):
-        if self.batch_index >= len(self.cards):
-            self.on_game_done()
-            return
-
-        batch             = self.cards[self.batch_index: self.batch_index + self.cards_per_batch]
-        self.batch_index += len(batch)
-        self.pairs_up     = len(batch) // 2
-        self.card1        = None
-        self.card2        = None
-        self.input_locked = False
-        self.on_batch_done(batch)
+        super().__init__(
+            cards           = cards,
+            cards_per_batch = cards_per_batch,
+            on_batch_done   = on_batch_done,
+            on_game_done    = on_game_done,
+            on_move         = on_move,
+        )
+        self.on_correct = on_correct
+        self.on_wrong   = on_wrong
 
     def put_card(self, label):
         if self.input_locked:
@@ -153,37 +117,28 @@ class LineState:
             label.set_selected()
             return
 
-        self.card2        = label
-        self.input_locked = True
-        label.set_selected()
-        self.on_move()
-        self._check_match()
+        super().put_card(label)
+
+    def _on_select_first(self, card):
+        card.set_selected()
+
+    def _on_select_second(self, card):
+        card.set_selected()
 
     def _check_match(self):
-        if self.card1.pair_id == self.card2.pair_id:
+        if self._pair_ids_match():
             self.card1.set_matched()
             self.card2.set_matched()
             self.on_correct(self.card1, self.card2)
-            self.card1        = None
-            self.card2        = None
-            self.pairs_up    -= 1
-            self.input_locked = False
-
-            if self.pairs_up == 0:
-                QTimer.singleShot(500, self.load_batch)
+            self._after_correct()
         else:
-            c1, c2     = self.card1, self.card2
-            self.card1 = None
-            self.card2 = None
-            self.on_wrong(c1, c2)
-            QTimer.singleShot(800, lambda: self._reset_after_wrong(c1, c2))
+            self.on_wrong(self.card1, self.card2)
+            self._after_wrong(self.card1, self.card2, 800, self._reset_after_wrong)
 
     def _reset_after_wrong(self, c1, c2):
         c1.deselect()
         c2.deselect()
         self.input_locked = False
-
-
 
 class LineMatchGame(QDialog):
     def __init__(self, deck_name: str):
@@ -192,7 +147,8 @@ class LineMatchGame(QDialog):
         self.setWindowTitle("Line Match")
         self.showMaximized()
 
-        number_of_pairs = load_config()
+        cfg             = load_config(("numberOfPairs", 4))
+        number_of_pairs = cfg["numberOfPairs"]
         pairs           = load_pairs(deck_name, count=999)
         all_labels      = self._pairs_to_labels(pairs)
 
@@ -210,8 +166,6 @@ class LineMatchGame(QDialog):
 
         self.state.load_batch()
 
-
-
     def _pairs_to_labels(self, pairs):
         labels = []
         for i, (front, back) in enumerate(pairs):
@@ -222,8 +176,6 @@ class LineMatchGame(QDialog):
             labels.append(left)
             labels.append(right)
         return labels
-
-
 
     def _load_ui(self):
         self.main_layout = QVBoxLayout()
@@ -280,8 +232,8 @@ class LineMatchGame(QDialog):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.canvas.setGeometry(self.rect())
-
+        if hasattr(self, 'canvas'):
+            self.canvas.setGeometry(self.rect())
 
     def _build_columns(self, batch):
         for col in [self.left_col, self.right_col]:
@@ -309,7 +261,6 @@ class LineMatchGame(QDialog):
         self.left_col.addStretch()
         self.right_col.addStretch()
 
-
     def _on_correct(self, c1, c2):
         p1 = c1.get_center(self.canvas)
         p2 = c2.get_center(self.canvas)
@@ -319,7 +270,6 @@ class LineMatchGame(QDialog):
         p1 = c1.get_center(self.canvas)
         p2 = c2.get_center(self.canvas)
         self.canvas.flash_red(p1, p2)
-
 
     def _count_move(self):
         self.moves += 1
@@ -333,7 +283,6 @@ class LineMatchGame(QDialog):
         self.clock.stop()
         self.reject()
 
-
     def _finish(self):
         self.clock.stop()
 
@@ -345,27 +294,5 @@ class LineMatchGame(QDialog):
 
         self.canvas.clear_all()
 
-        win        = QWidget()
-        win_layout = QVBoxLayout()
-        win_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        title = QLabel("You Won!")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("font-size: 48px; font-weight: bold; color: white;")
-
-        stats = QLabel(f"Moves: {self.moves}   Time: {self.seconds}s")
-        stats.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        stats.setStyleSheet("font-size: 24px; color: #ccc;")
-
-        close_btn = QPushButton("Close")
-        close_btn.setStyleSheet("font-size: 18px; padding: 10px 40px; background: #4CAF50; color: white; border-radius: 8px;")
-        close_btn.setFixedWidth(200)
-        qconnect(close_btn.clicked, self.accept)
-
-        win_layout.addWidget(title)
-        win_layout.addWidget(stats)
-        win_layout.addSpacing(20)
-        win_layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignCenter)
-        win.setLayout(win_layout)
-
+        win = make_win_widget(self.moves, self.seconds, self.accept)
         self.game_area_layout.addWidget(win)

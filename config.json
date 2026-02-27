@@ -2,6 +2,6 @@
     "pairs":16,
     "flip_delay_ms":800,
     "currentGame":"memory",
-    "cols":2,
+    "cols":4,
     "rows":4 
 }

@@ -1,22 +1,11 @@
-# games/memory_flip.py
-
-import json
-import os
 import random
 from dataclasses import dataclass
 from aqt.qt import (QDialog, QGridLayout, QVBoxLayout,
                     QHBoxLayout, QLabel, QTimer, QSizePolicy, Qt, QPushButton, QWidget)
 from aqt.utils import qconnect
 from aqt import mw
-from .card_loader import load_pairs
-
-def load_config():
-    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
-    with open(config_path, "r") as f:
-        config = json.load(f)
-    rows = config.get("rows", 4)
-    cols = config.get("cols", 4)
-    return rows, cols
+from .utils import load_config, load_pairs, make_win_widget
+from .base_state import BaseState
 
 @dataclass
 class Tile:
@@ -31,14 +20,12 @@ class TileButton(QLabel):
         super().__init__()
         self.tile    = tile
         self.putCard = putCard
+        self.pair_id = tile.pair_id
         self.setMinimumSize(200, 150)
         self.setMaximumSize(400, 300)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setWordWrap(True)
-        self.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Expanding
-        )
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.set_facedown()
 
     def mousePressEvent(self, event):
@@ -48,142 +35,94 @@ class TileButton(QLabel):
     def set_facedown(self):
         self.tile.is_flipped = False
         self.setText("?")
-        self.setStyleSheet("""
-            background: #607D8B;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-            border-radius: 8px;
-        """)
+        self.setStyleSheet("background: #607D8B; color: white; font-size: 24px; font-weight: bold; border-radius: 8px;")
 
     def set_flipped(self):
         self.tile.is_flipped = True
         self.setText(self.tile.text)
-        self.setStyleSheet("""
-            background: #2196F3;
-            color: white;
-            font-size: 18px;
-            border-radius: 8px;
-        """)
+        self.setStyleSheet("background: #2196F3; color: white; font-size: 18px; border-radius: 8px;")
 
     def set_matched(self):
         self.tile.is_Matched = True
         self.tile.is_flipped = True
         self.setText(self.tile.text)
-        self.setStyleSheet("""
-            background: #4CAF50;
-            color: white;
-            font-size: 18px;
-            border-radius: 8px;
-        """)
+        self.setStyleSheet("background: #4CAF50; color: white; font-size: 18px; border-radius: 8px;")
 
     def set_wrong(self):
-        self.setStyleSheet("""
-            background: #F44336;
-            color: white;
-            font-size: 18px;
-            border-radius: 8px;
-        """)
+        self.setStyleSheet("background: #F44336; color: white; font-size: 18px; border-radius: 8px;")
 
-class State:
+class State(BaseState):
     def __init__(self, cards, numberOfCardsPerMemoryGrid, onBatchDone, onGameDone, onMove):
-        self.cards                      = cards
-        self.numberOfCardsPerMemoryGrid = numberOfCardsPerMemoryGrid
-        self.onBatchDone                = onBatchDone
-        self.onGameDone                 = onGameDone
-        self.onMove                     = onMove
-        self.card1                      = None
-        self.card2                      = None
-        self.inputLocked                = False
-        self.batchIndex                 = 0
+        super().__init__(
+            cards           = cards,
+            cards_per_batch = numberOfCardsPerMemoryGrid,
+            on_batch_done   = onBatchDone,
+            on_game_done    = onGameDone,
+            on_move         = onMove,
+        )
 
-    def loadCards(self):
-        if self.batchIndex >= len(self.cards):
-            self.onGameDone()
-            return
-
-        batch                = self.cards[self.batchIndex:self.batchIndex + self.numberOfCardsPerMemoryGrid]
-        self.batchIndex     += self.numberOfCardsPerMemoryGrid
-        self.numberOfCardsUp = len(batch) // 2
-        self.card1           = None
-        self.card2           = None
-        self.inputLocked     = False
-        self.onBatchDone(batch)
-
-    def putCard(self, tileBtn):
-        if self.inputLocked:
+    def put_card(self, tileBtn):
+        if self.input_locked:
             return
         if tileBtn.tile.is_flipped:
             return
+        super().put_card(tileBtn)
 
-        if self.card1 is None:
-            self.card1 = tileBtn
-            tileBtn.set_flipped()
-            return
+    def _on_select_first(self, card):
+        card.set_flipped()
 
-        if self.card2 is None:
-            self.card2       = tileBtn
-            self.inputLocked = True
-            tileBtn.set_flipped()
-            self.onMove()
-            self.checkMatch()
+    def _on_select_second(self, card):
+        card.set_flipped()
 
-    def checkMatch(self):
-        if self.card1.tile.pair_id == self.card2.tile.pair_id:
+    def _check_match(self):
+        if self._pair_ids_match():
             self.card1.set_matched()
             self.card2.set_matched()
-            self.card1            = None
-            self.card2            = None
-            self.numberOfCardsUp -= 1
-            self.inputLocked      = False
-
-            if self.numberOfCardsUp == 0:
-                QTimer.singleShot(500, self.loadCards)
+            self._after_correct()
         else:
             self.card1.set_wrong()
             self.card2.set_wrong()
-            c1, c2       = self.card1, self.card2
-            self.card1   = None
-            self.card2   = None
-            QTimer.singleShot(800, lambda: self.flipBack(c1, c2))
+            self._after_wrong(self.card1, self.card2, 800, self._flip_back)
 
-    def flipBack(self, c1, c2):
+    def _flip_back(self, c1, c2):
         c1.set_facedown()
         c2.set_facedown()
-        self.inputLocked = False
+        self.input_locked = False
 
 class MemoryFlipGame(QDialog):
     def __init__(self, deckName: str):
         super().__init__(mw)
-        self.deckName          = deckName
-        self.rows, self.cols   = load_config()
+        self.deckName = deckName
+        cfg           = load_config(("rows", 4), ("cols", 4))
+        self.rows     = cfg["rows"]
+        self.cols     = cfg["cols"]
         self.numberOfCardsPerMemoryGrid = self.rows * self.cols
         self.setWindowTitle("Memory Flip")
         self.showMaximized()
 
         pairs       = load_pairs(deckName, count=999)
-        tileButtons = self.pairsToTileButtons(pairs)
+        tileButtons = self._pairs_to_tile_buttons(pairs)
 
-        self.loadUI()
+        self._load_ui()
 
         self.state = State(
             cards                      = tileButtons,
             numberOfCardsPerMemoryGrid = self.numberOfCardsPerMemoryGrid,
-            onBatchDone                = self.buildGrid,
-            onGameDone                 = self.finish,
-            onMove                     = self.countMove
+            onBatchDone                = self._build_grid,
+            onGameDone                 = self._finish,
+            onMove                     = self._count_move,
         )
 
-        self.state.loadCards()
+        self.state.load_batch()
 
-    def pairsToTileButtons(self, pairs):
+    def _pairs_to_tile_buttons(self, pairs):
         tiles = []
         for i, (front, back) in enumerate(pairs):
             tiles.append(TileButton(Tile(text=front, pair_id=i, is_front=True),  putCard=None))
             tiles.append(TileButton(Tile(text=back,  pair_id=i, is_front=False), putCard=None))
         return tiles
 
-    def loadUI(self):
+    def _load_ui(self):
         self.mainLayout = QVBoxLayout()
         self.mainLayout.setContentsMargins(20, 20, 20, 20)
         self.mainLayout.setSpacing(10)
@@ -192,7 +131,7 @@ class MemoryFlipGame(QDialog):
 
         backBtn = QPushButton("← Back")
         backBtn.setStyleSheet("font-size: 14px; color: white; background: #455A64; border-radius: 6px; padding: 4px 10px;")
-        qconnect(backBtn.clicked, self.goBack)
+        qconnect(backBtn.clicked, self._go_back)
         top.addWidget(backBtn)
 
         self.deckLabel  = QLabel(f"<b>{self.deckName}</b>")
@@ -211,21 +150,20 @@ class MemoryFlipGame(QDialog):
         self.gridLayout = QGridLayout()
         self.gridLayout.setSpacing(10)
         self.mainLayout.addLayout(self.gridLayout, 1)
-
         self.setLayout(self.mainLayout)
 
         self.seconds = 0
         self.moves   = 0
         self.clock   = QTimer()
         self.clock.setInterval(1000)
-        qconnect(self.clock.timeout, self.tick)
+        qconnect(self.clock.timeout, self._tick)
         self.clock.start()
 
-    def goBack(self):
+    def _go_back(self):
         self.clock.stop()
         self.reject()
 
-    def buildGrid(self, batch):
+    def _build_grid(self, batch):
         while self.gridLayout.count():
             item = self.gridLayout.takeAt(0)
             if item.widget():
@@ -234,7 +172,7 @@ class MemoryFlipGame(QDialog):
         random.shuffle(batch)
 
         for btn in batch:
-            btn.putCard = self.state.putCard
+            btn.putCard = self.state.put_card
             btn.set_facedown()
 
         i = 0
@@ -244,15 +182,15 @@ class MemoryFlipGame(QDialog):
                     self.gridLayout.addWidget(batch[i], x, y)
                     i += 1
 
-    def countMove(self):
+    def _count_move(self):
         self.moves += 1
         self.movesLabel.setText(f"Moves: {self.moves}")
 
-    def tick(self):
+    def _tick(self):
         self.seconds += 1
         self.timeLabel.setText(f"Time: {self.seconds}s")
 
-    def finish(self):
+    def _finish(self):
         self.clock.stop()
 
         while self.gridLayout.count():
@@ -260,27 +198,5 @@ class MemoryFlipGame(QDialog):
             if item.widget():
                 item.widget().deleteLater()
 
-        winWidget = QWidget()
-        winLayout = QVBoxLayout()
-        winLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        title = QLabel("You Won!")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("font-size: 48px; font-weight: bold; color: white;")
-
-        stats = QLabel(f"Moves: {self.moves}   Time: {self.seconds}s")
-        stats.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        stats.setStyleSheet("font-size: 24px; color: #ccc;")
-
-        closeBtn = QPushButton("Close")
-        closeBtn.setStyleSheet("font-size: 18px; padding: 10px 40px; background: #4CAF50; color: white; border-radius: 8px;")
-        closeBtn.setFixedWidth(200)
-        qconnect(closeBtn.clicked, self.accept)
-
-        winLayout.addWidget(title)
-        winLayout.addWidget(stats)
-        winLayout.addSpacing(20)
-        winLayout.addWidget(closeBtn, alignment=Qt.AlignmentFlag.AlignCenter)
-
-        winWidget.setLayout(winLayout)
-        self.gridLayout.addWidget(winWidget, 0, 0)
+        win = make_win_widget(self.moves, self.seconds, self.accept)
+        self.gridLayout.addWidget(win, 0, 0)
