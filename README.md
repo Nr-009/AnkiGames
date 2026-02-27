@@ -10,7 +10,7 @@ An Anki desktop add-on that adds mini-game study modes to any deck. Instead of t
 A classic memory/concentration game. Cards are placed face-down in a grid. Flip two at a time — if the front and back of the same card match, they stay revealed. If not, they flip back. Complete all pairs to finish the batch and move on to the next.
 
 ### Line Match
-Two columns of cards are shown side by side — fronts on the left, backs on the right, both independently shuffled. Click one card from each side to draw a connection. A green line confirms a correct match. A red line flashes briefly for a wrong one. Match all pairs to advance.
+Two columns of cards are shown side by side — fronts on the left, backs on the right, both independently shuffled. Click one card from each side to draw a connection. A green line confirms a correct match. A red line flashes briefly for a wrong one. Match all pairs to advance.an
 
 ---
 
