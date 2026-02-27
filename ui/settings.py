@@ -2,11 +2,10 @@ import json
 import os
 from aqt.qt import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLabel, QSpinBox, QPushButton, Qt
+    QLabel, QSpinBox, QPushButton, QCheckBox, Qt
 )
-from aqt.utils import qconnect, showInfo
+from aqt.utils import qconnect
 from aqt import mw
-
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
 
@@ -50,6 +49,11 @@ class SettingsDialog(QDialog):
         self.pairs_spin.setRange(2, 20)
         self.pairs_spin.setValue(cfg.get("numberOfPairs", 4))
 
+        self.max_cards_spin = QSpinBox()
+        self.max_cards_spin.setRange(0, 9999)
+        self.max_cards_spin.setSpecialValueText("No limit")
+        self.max_cards_spin.setValue(cfg.get("maxCards") or 0)
+
         self.flip_delay_spin = QSpinBox()
         self.flip_delay_spin.setRange(200, 3000)
         self.flip_delay_spin.setSingleStep(100)
@@ -62,6 +66,9 @@ class SettingsDialog(QDialog):
         self.line_wrong_spin.setSuffix(" ms")
         self.line_wrong_spin.setValue(cfg.get("line_wrong_ms", 800))
 
+        self.review_queue_check = QCheckBox()
+        self.review_queue_check.setChecked(cfg.get("useReviewQueue", False))
+
         self.error_label = QLabel("")
         self.error_label.setStyleSheet("color: #ff4a4a; font-size: 13px;")
         self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -69,8 +76,10 @@ class SettingsDialog(QDialog):
         form.addRow("Memory Flip rows:", self.rows_spin)
         form.addRow("Memory Flip cols:", self.cols_spin)
         form.addRow("Line Match pairs:", self.pairs_spin)
+        form.addRow("Max cards (0 = no limit):", self.max_cards_spin)
         form.addRow("Flip delay (wrong):", self.flip_delay_spin)
         form.addRow("Red line duration:", self.line_wrong_spin)
+        form.addRow("Review queue only:", self.review_queue_check)
 
         btn_layout = QHBoxLayout()
         cancel_btn = QPushButton("Cancel")
@@ -97,14 +106,17 @@ class SettingsDialog(QDialog):
 
         self.error_label.setText("")
 
-        write_config({
-            "rows":          rows,
-            "cols":          cols,
-            "numberOfPairs": self.pairs_spin.value(),
-            "flip_delay_ms": self.flip_delay_spin.value(),
-            "line_wrong_ms": self.line_wrong_spin.value(),
-        })
+        max_cards_val = self.max_cards_spin.value()
 
+        write_config({
+            "rows":           rows,
+            "cols":           cols,
+            "numberOfPairs":  self.pairs_spin.value(),
+            "maxCards":       max_cards_val if max_cards_val > 0 else None,
+            "flip_delay_ms":  self.flip_delay_spin.value(),
+            "line_wrong_ms":  self.line_wrong_spin.value(),
+            "useReviewQueue": self.review_queue_check.isChecked(),
+        })
         self.accept()
 
 
