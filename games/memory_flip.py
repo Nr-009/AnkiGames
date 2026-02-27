@@ -7,6 +7,7 @@ from aqt import mw
 from .utils import load_config, load_pairs, make_win_widget
 from .base_state import BaseState
 
+
 @dataclass
 class Tile:
     text: str
@@ -14,6 +15,7 @@ class Tile:
     is_front: bool
     is_flipped: bool = False
     is_Matched: bool = False
+
 
 class TileButton(QLabel):
     def __init__(self, tile: Tile, putCard):
@@ -51,6 +53,7 @@ class TileButton(QLabel):
     def set_wrong(self):
         self.setStyleSheet("background: #F44336; color: white; font-size: 18px; border-radius: 8px;")
 
+
 class State(BaseState):
     def __init__(self, cards, numberOfCardsPerMemoryGrid, onBatchDone, onGameDone, onMove):
         super().__init__(
@@ -78,7 +81,6 @@ class State(BaseState):
         if self._pair_ids_match():
             self.card1.set_matched()
             self.card2.set_matched()
-            self.correct_moves += 1
             self._after_correct()
         else:
             self.card1.set_wrong()
@@ -91,6 +93,7 @@ class State(BaseState):
         c1.set_facedown()
         c2.set_facedown()
         self.input_locked = False
+
 
 class MemoryFlipGame(QDialog):
     def __init__(self, deckName: str):
@@ -191,6 +194,10 @@ class MemoryFlipGame(QDialog):
         self.seconds += 1
         self.timeLabel.setText(f"Time: {self.seconds}s")
 
+    def _go_back(self):
+        self.clock.stop()
+        self.reject()
+
     def _finish(self):
         self.clock.stop()
 
@@ -200,5 +207,9 @@ class MemoryFlipGame(QDialog):
                 item.widget().deleteLater()
 
         accuracy = int((self.state.correct_moves / self.state.moves) * 100) if self.state.moves > 0 else 100
-        win      = make_win_widget(self.state.moves, self.seconds, accuracy, self.accept)
+        win      = make_win_widget(self.state.moves, self.seconds, accuracy, self.accept, self._play_again)
         self.gridLayout.addWidget(win, 0, 0)
+
+    def _play_again(self):
+        self.accept()
+        MemoryFlipGame(self.deckName).exec()

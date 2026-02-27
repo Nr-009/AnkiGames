@@ -3,7 +3,7 @@ import os
 import html
 import json
 import random
-from aqt.qt import (QVBoxLayout, QLabel, QPushButton, QWidget, Qt)
+from aqt.qt import (QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget, Qt)
 from aqt.utils import qconnect
 from aqt import mw
 
@@ -15,7 +15,7 @@ def load_config(*keys_and_defaults):
     return {key: config.get(key, default) for key, default in keys_and_defaults}
 
 
-def make_win_widget(moves: int, seconds: int, accuracy: int, on_close) -> QWidget:
+def make_win_widget(moves: int, seconds: int, accuracy: int, on_close, on_play_again) -> QWidget:
     win        = QWidget()
     win_layout = QVBoxLayout()
     win_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -28,15 +28,26 @@ def make_win_widget(moves: int, seconds: int, accuracy: int, on_close) -> QWidge
     stats.setAlignment(Qt.AlignmentFlag.AlignCenter)
     stats.setStyleSheet("font-size: 24px; color: #ccc;")
 
+    again_btn = QPushButton("Play Again")
+    again_btn.setStyleSheet("font-size: 18px; padding: 10px 40px; background: #4CAF50; color: white; border-radius: 8px;")
+    again_btn.setFixedWidth(200)
+    qconnect(again_btn.clicked, on_play_again)
+
     close_btn = QPushButton("Close")
-    close_btn.setStyleSheet("font-size: 18px; padding: 10px 40px; background: #4CAF50; color: white; border-radius: 8px;")
+    close_btn.setStyleSheet("font-size: 18px; padding: 10px 40px; background: #455A64; color: white; border-radius: 8px;")
     close_btn.setFixedWidth(200)
     qconnect(close_btn.clicked, on_close)
+
+    btn_row = QHBoxLayout()
+    btn_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    btn_row.setSpacing(20)
+    btn_row.addWidget(again_btn)
+    btn_row.addWidget(close_btn)
 
     win_layout.addWidget(title)
     win_layout.addWidget(stats)
     win_layout.addSpacing(20)
-    win_layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+    win_layout.addLayout(btn_row)
     win.setLayout(win_layout)
     return win
 

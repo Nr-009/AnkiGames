@@ -357,14 +357,29 @@ class LineMatchGame(QDialog):
         stats.setStyleSheet("font-size: 24px; color: #ccc;")
 
         close_btn = QPushButton("Close")
-        close_btn.setStyleSheet("font-size: 18px; padding: 10px 40px; background: #4CAF50; color: white; border-radius: 8px;")
+        close_btn.setStyleSheet("font-size: 18px; padding: 10px 40px; background: #455A64; color: white; border-radius: 8px;")
         close_btn.setFixedWidth(200)
         qconnect(close_btn.clicked, self.accept)
+
+        again_btn = QPushButton("Play Again")
+        again_btn.setStyleSheet("font-size: 18px; padding: 10px 40px; background: #4CAF50; color: white; border-radius: 8px;")
+        again_btn.setFixedWidth(200)
+        qconnect(again_btn.clicked, self._play_again)
+
+        btn_row = QHBoxLayout()
+        btn_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        btn_row.setSpacing(20)
+        btn_row.addWidget(again_btn)
+        btn_row.addWidget(close_btn)
 
         win_layout.addWidget(title)
         win_layout.addWidget(stats)
         win_layout.addSpacing(20)
-        win_layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        win_layout.addLayout(btn_row)
         win.setLayout(win_layout)
 
         self.game_area_layout.addWidget(win)
+
+    def _play_again(self):
+        self.accept()
+        LineMatchGame(self.deck_name).exec()
