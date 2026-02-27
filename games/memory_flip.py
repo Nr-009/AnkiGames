@@ -78,6 +78,7 @@ class State(BaseState):
         if self._pair_ids_match():
             self.card1.set_matched()
             self.card2.set_matched()
+            self.correct_moves += 1
             self._after_correct()
         else:
             self.card1.set_wrong()
@@ -102,7 +103,7 @@ class MemoryFlipGame(QDialog):
         self.setWindowTitle("Memory Flip")
         self.showMaximized()
 
-        pairs       = load_pairs(deckName, count=999)
+        pairs       = load_pairs(deckName)
         tileButtons = self._pairs_to_tile_buttons(pairs)
 
         self._load_ui()
@@ -155,7 +156,6 @@ class MemoryFlipGame(QDialog):
         self.setLayout(self.mainLayout)
 
         self.seconds = 0
-        self.moves   = 0
         self.clock   = QTimer()
         self.clock.setInterval(1000)
         qconnect(self.clock.timeout, self._tick)
@@ -185,8 +185,7 @@ class MemoryFlipGame(QDialog):
                     i += 1
 
     def _count_move(self):
-        self.moves += 1
-        self.movesLabel.setText(f"Moves: {self.moves}")
+        self.movesLabel.setText(f"Moves: {self.state.moves}")
 
     def _tick(self):
         self.seconds += 1
@@ -200,5 +199,6 @@ class MemoryFlipGame(QDialog):
             if item.widget():
                 item.widget().deleteLater()
 
-        win = make_win_widget(self.moves, self.seconds, self.accept)
+        accuracy = int((self.state.correct_moves / self.state.moves) * 100) if self.state.moves > 0 else 100
+        win      = make_win_widget(self.state.moves, self.seconds, accuracy, self.accept)
         self.gridLayout.addWidget(win, 0, 0)

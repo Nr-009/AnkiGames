@@ -1,19 +1,20 @@
 from aqt.qt import QTimer
 
-class BaseState:
 
+class BaseState:
     def __init__(self, cards, cards_per_batch, on_batch_done, on_game_done, on_move):
         self.cards           = cards
         self.cards_per_batch = cards_per_batch
         self.on_batch_done   = on_batch_done
         self.on_game_done    = on_game_done
         self.on_move         = on_move
-
-        self.card1        = None
-        self.card2        = None
-        self.input_locked = False
-        self.batch_index  = 0
-        self.pairs_up     = 0
+        self.card1           = None
+        self.card2           = None
+        self.input_locked    = False
+        self.batch_index     = 0
+        self.pairs_up        = 0
+        self.moves           = 0
+        self.correct_moves   = 0
 
     def load_batch(self):
         if self.batch_index >= len(self.cards):
@@ -40,6 +41,7 @@ class BaseState:
         self.card2        = card
         self.input_locked = True
         self._on_select_second(card)
+        self.moves += 1
         self.on_move()
         self._check_match()
 
@@ -56,10 +58,11 @@ class BaseState:
         return self.card1.pair_id == self.card2.pair_id
 
     def _after_correct(self):
-        self.card1        = None
-        self.card2        = None
-        self.pairs_up    -= 1
-        self.input_locked = False
+        self.correct_moves += 1
+        self.card1         = None
+        self.card2         = None
+        self.pairs_up     -= 1
+        self.input_locked  = False
 
         if self.pairs_up == 0:
             QTimer.singleShot(500, self.load_batch)
